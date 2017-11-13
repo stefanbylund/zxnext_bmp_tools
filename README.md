@@ -30,9 +30,14 @@ Next format. The original RGB888 colors in the palette are converted to RGB333
 colors and then back to their equivalent RGB888 colors. The resulting RGB888
 colors are equivalent representations of the Spectrum Next RGB333 colors and
 the converted BMP file should display exactly as when rendered natively on the
-Spectrum Next (disregarding the color calibration of the monitors being used).
-If no destination BMP file is specified, the source BMP file is modified. Run
-the nextbmp tool without any parameters to get a list of all options.
+Spectrum Next (disregarding color calibration of the monitors being used).
+If no destination BMP file is specified, the source BMP file is modified.
+Run the nextbmp tool without any parameters to get a list of all options.
+
+Tip: If you have an image in another format than BMP (e.g. PNG) or another color
+depth than 8 bits/pixel (e.g. 24-bit BMP), first convert the image to an 8-bit
+BMP image in a paint program (e.g. Photoshop, Paint.NET or GIMP) before
+converting it to Spectrum Next palette format using the nextbmp tool.
 
 Note that when the original RGB888 colors in the palette are converted to RGB333
 colors, the resulting 3-bit color components may not end up as integers and must
@@ -90,21 +95,22 @@ graphics.nxi and write the raw palette to a separate file called graphics.nxp.
 ## How to Build
 
 The Next BMP tools are written in portable C code and should compile and run on
-any modern operating system with a C compiler supporting C99. The tools have
-been successfully compiled with GCC and Microsoft Visual Studio and has been
-verified on Windows and Linux. They should also work on macOS but that has not
-yet been tested.
+any modern operating system with a C compiler supporting C99 (or actually a
+quite small subset thereof). The tools have been successfully compiled with GCC
+and Microsoft Visual Studio and has been verified on Windows and Linux. They
+should also work on macOS but that has not yet been tested.
 
-Use the following command-lines to build using GCC:
+Use the following command-lines to build using GCC (add -std=c99 if you're using
+an older version of GCC):
 ```
-> gcc -O2 -Wall -o nextbmp nextbmp.c
-> gcc -O2 -Wall -o nextraw nextraw.c
+> gcc -O2 -Wall -lm -o nextbmp nextbmp.c
+> gcc -O2 -Wall -lm -o nextraw nextraw.c
 ```
 
 Use the following command-lines to build using Microsoft Visual Studio:
 ```
-> cl /O2 /W3 nextbmp.c
-> cl /O2 /W3 nextraw.c
+> cl /O2 /W2 nextbmp.c
+> cl /O2 /W2 nextraw.c
 ```
 
 Note that you don't need to use Microsoft Visual Studio when compiling on
