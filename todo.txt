@@ -1,0 +1,1 @@
+* Add support for default RGB332 palette.
