@@ -85,7 +85,6 @@ static void create_filename(char *out_filename, const char *in_filename, const c
     strcpy(end, extension);
 }
 
-
 static bool is_valid_bmp_file(uint32_t *palette_offset,
                               uint32_t *image_offset,
                               uint32_t *image_width,
