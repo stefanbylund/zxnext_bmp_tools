@@ -49,9 +49,16 @@ typedef enum rounding_mode
 {
     FLOOR,
     CEIL,
-    ROUND,
-    DEFAULT
+    ROUND
 } rounding_mode_t;
+
+typedef struct arguments
+{
+    rounding_mode_t rounding_mode;
+    bool use_std_palette;
+    char *in_filename;
+    char *out_filename;
+} arguments_t;
 
 static uint8_t header[HEADER_SIZE];
 
@@ -75,6 +82,79 @@ static void print_usage(void)
     printf("  -std-palette   If specified, convert to the Spectrum Next standard palette colors.\n");
 }
 
+static bool parse_args(int argc, char *argv[], arguments_t *args)
+{
+    if (argc == 1)
+    {
+        print_usage();
+        return false;
+    }
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+        {
+            if (!strcmp(argv[i], "-floor"))
+            {
+                args->rounding_mode = FLOOR;
+            }
+            else if (!strcmp(argv[i], "-ceil"))
+            {
+                args->rounding_mode = CEIL;
+            }
+            else if (!strcmp(argv[i], "-round"))
+            {
+                args->rounding_mode = ROUND;
+            }
+            else if (!strcmp(argv[i], "-std-palette"))
+            {
+                args->use_std_palette = true;
+            }
+            else if (!strcmp(argv[i], "-help"))
+            {
+                print_usage();
+                return false;
+            }
+            else
+            {
+                fprintf(stderr, "Invalid option: %s\n", argv[i]);
+                print_usage();
+                return false;
+            }
+        }
+        else
+        {
+            if (args->in_filename == NULL)
+            {
+                args->in_filename = argv[i];
+            }
+            else if (args->out_filename == NULL)
+            {
+                args->out_filename = argv[i];
+            }
+            else
+            {
+                fprintf(stderr, "Too many arguments.\n");
+                print_usage();
+                return false;
+            }
+        }
+    }
+
+    if (args->in_filename == NULL)
+    {
+        fprintf(stderr, "Input file not specified.\n");
+        print_usage();
+        return false;
+    }
+    if (args->out_filename == NULL)
+    {
+        args->out_filename = args->in_filename;
+    }
+
+    return true;
+}
+
 static void exit_with_msg(const char *format, ...)
 {
   va_list args;
@@ -83,26 +163,6 @@ static void exit_with_msg(const char *format, ...)
   va_end(args);
 
   exit(EXIT_FAILURE);
-}
-
-static rounding_mode_t get_rounding_mode(char *s)
-{
-    if (!strcmp(s, "-floor"))
-    {
-        return FLOOR;
-    }
-    else if (!strcmp(s, "-ceil"))
-    {
-        return CEIL;
-    }
-    else if (!strcmp(s, "-round"))
-    {
-        return ROUND;
-    }
-    else
-    {
-        return DEFAULT;
-    }
 }
 
 static bool is_valid_bmp_file(uint32_t *palette_offset,
@@ -321,47 +381,33 @@ static bool copy_file(FILE *src_file, FILE *dst_file)
 
 int main(int argc, char *argv[])
 {
+    arguments_t args = {ROUND, false, NULL, NULL};
+    bool create_new_file;
     uint32_t palette_offset;
     uint32_t image_offset;
     uint32_t image_width;
     int32_t image_height;
-    bool use_std_palette = true; // FIXME
-
-    if ((argc < 2) || (argc > 5))
-    {
-        print_usage();
-        return 0;
-    }
 
     // Parse program arguments.
-    rounding_mode_t rounding_mode = get_rounding_mode(argv[1]);
-    bool default_rounding_mode = (rounding_mode == DEFAULT);
-    if (!default_rounding_mode && (argc == 2))
+    if (!parse_args(argc, argv, &args))
     {
-        print_usage();
-        return 0;
+        exit(EXIT_FAILURE);
     }
-    bool create_new_file = (argc == 4) || ((argc == 3) && default_rounding_mode);
-    char *in_filename = default_rounding_mode ? argv[1] : argv[2];
-    char *out_filename = create_new_file ? (default_rounding_mode ? argv[2] : argv[3]) : in_filename;
-    if (create_new_file && !strcmp(in_filename, out_filename))
-    {
-        create_new_file = false;
-    }
+    create_new_file = (args.out_filename != NULL) && strcmp(args.in_filename, args.out_filename);
 
     // Open the BMP file and validate its header.
-    FILE *in_file = fopen(in_filename, "rb");
+    FILE *in_file = fopen(args.in_filename, "rb");
     if (in_file == NULL)
     {
-        exit_with_msg("Can't open file %s.\n", in_filename);
+        exit_with_msg("Can't open file %s.\n", args.in_filename);
     }
     if (fread(header, sizeof(uint8_t), sizeof(header), in_file) != sizeof(header))
     {
-        exit_with_msg("Can't read the BMP header in file %s.\n", in_filename);
+        exit_with_msg("Can't read the BMP header in file %s.\n", args.in_filename);
     }
     if (!is_valid_bmp_file(&palette_offset, &image_offset, &image_width, &image_height))
     {
-        exit_with_msg("The file %s is not a valid or supported BMP file.\n", in_filename);
+        exit_with_msg("The file %s is not a valid or supported BMP file.\n", args.in_filename);
     }
 
     // Calculate image size.
@@ -369,7 +415,7 @@ int main(int argc, char *argv[])
     uint32_t padded_image_width = (image_width + 3) & ~0x03;
     image_height = abs(image_height);
     uint32_t image_size = padded_image_width * image_height;
-    if (use_std_palette)
+    if (args.use_std_palette)
     {
         // Allocate memory for image data.
         image = malloc(image_size);
@@ -383,30 +429,30 @@ int main(int argc, char *argv[])
     // Read the palette and image data.
     if (fseek(in_file, palette_offset, SEEK_SET) != 0)
     {
-        exit_with_msg("Can't access the BMP palette in file %s.\n", in_filename);
+        exit_with_msg("Can't access the BMP palette in file %s.\n", args.in_filename);
     }
     if (fread(palette, sizeof(uint8_t), sizeof(palette), in_file) != sizeof(palette))
     {
-        exit_with_msg("Can't read the BMP palette in file %s.\n", in_filename);
+        exit_with_msg("Can't read the BMP palette in file %s.\n", args.in_filename);
     }
-    if (use_std_palette)
+    if (args.use_std_palette)
     {
         if (fseek(in_file, image_offset, SEEK_SET) != 0)
         {
-            exit_with_msg("Can't access the BMP image data in file %s.\n", in_filename);
+            exit_with_msg("Can't access the BMP image data in file %s.\n", args.in_filename);
         }
         if (fread(image, sizeof(uint8_t), image_size, in_file) != image_size)
         {
-            exit_with_msg("Can't read the BMP image data in file %s.\n", in_filename);
+            exit_with_msg("Can't read the BMP image data in file %s.\n", args.in_filename);
         }
     }
     fclose(in_file);
 
     // Update the colors in the palette.
-    if (use_std_palette)
+    if (args.use_std_palette)
     {
         // Convert the colors in the palette to the Spectrum Next standard palette RGB332 colors.
-        convert_standard_palette(rounding_mode);
+        convert_standard_palette(args.rounding_mode);
 
         // Update the image pixels to use the new palette indexes of the standard palette colors.
         for (int i = 0; i < image_size; i++)
@@ -417,46 +463,46 @@ int main(int argc, char *argv[])
     else
     {
         // Convert the colors in the palette to the closest matching RGB333 colors.
-        convert_palette(rounding_mode);
+        convert_palette(args.rounding_mode);
     }
 
     // Write the updated palette and, if the standard palette is used, the updated image data.
     // Update the original BMP file or a copy of it.
-    FILE *out_file = fopen(out_filename, create_new_file ? "wb" : "r+b");
+    FILE *out_file = fopen(args.out_filename, create_new_file ? "wb" : "r+b");
     if (out_file == NULL)
     {
-        exit_with_msg("Can't open file %s.\n", out_filename);
+        exit_with_msg("Can't open file %s.\n", args.out_filename);
     }
     if (create_new_file)
     {
-        in_file = fopen(in_filename, "rb");
+        in_file = fopen(args.in_filename, "rb");
         if (in_file == NULL)
         {
-            exit_with_msg("Can't open file %s.\n", in_filename);
+            exit_with_msg("Can't open file %s.\n", args.in_filename);
         }
         if (!copy_file(in_file, out_file))
         {
-            exit_with_msg("Can't copy file %s to %s.\n", in_filename, out_filename);
+            exit_with_msg("Can't copy file %s to %s.\n", args.in_filename, args.out_filename);
         }
         fclose(in_file);
     }
     if (fseek(out_file, palette_offset, SEEK_SET) != 0)
     {
-        exit_with_msg("Can't access the BMP palette in file %s.\n", out_filename);
+        exit_with_msg("Can't access the BMP palette in file %s.\n", args.out_filename);
     }
     if (fwrite(palette, sizeof(uint8_t), sizeof(palette), out_file) != sizeof(palette))
     {
-        exit_with_msg("Can't write the BMP palette in file %s.\n", out_filename);
+        exit_with_msg("Can't write the BMP palette in file %s.\n", args.out_filename);
     }
-    if (use_std_palette)
+    if (args.use_std_palette)
     {
         if (fseek(out_file, image_offset, SEEK_SET) != 0)
         {
-            exit_with_msg("Can't access the BMP image data in file %s.\n", out_filename);
+            exit_with_msg("Can't access the BMP image data in file %s.\n", args.out_filename);
         }
         if (fwrite(image, sizeof(uint8_t), image_size, out_file) != image_size)
         {
-            exit_with_msg("Can't write the BMP image data in file %s.\n", out_filename);
+            exit_with_msg("Can't write the BMP image data in file %s.\n", args.out_filename);
         }
     }
     fclose(out_file);
