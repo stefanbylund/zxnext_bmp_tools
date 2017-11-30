@@ -75,11 +75,10 @@ static void print_usage(void)
     printf("If no destination BMP file is specified, the source BMP file is modified.\n");
     printf("\n");
     printf("Options:\n");
-    printf("  -floor   Round down the color values to the nearest integer.\n");
-    printf("  -ceil    Round up the color values to the nearest integer.\n");
-    printf("  -round   Round the color values to the nearest integer.\n");
-    printf("           Default if no rounding mode option is specified.\n");
-    printf("  -std-palette   If specified, convert to the Spectrum Next standard palette colors.\n");
+    printf("  -floor        Round down the color values to the nearest integer.\n");
+    printf("  -ceil         Round up the color values to the nearest integer.\n");
+    printf("  -round        Round the color values to the nearest integer (default).\n");
+    printf("  -std-palette  If specified, convert to the Spectrum Next standard palette colors.\n");
 }
 
 static bool parse_args(int argc, char *argv[], arguments_t *args)
