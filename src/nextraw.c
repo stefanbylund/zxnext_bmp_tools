@@ -42,6 +42,20 @@
 #define RAW_PALETTE_SIZE 512
 #define MIN_BMP_FILE_SIZE 1082
 
+typedef enum palette_option
+{
+    EMBEDDED,
+    SEPARATE,
+    NONE
+} palette_option_t;
+
+typedef struct arguments
+{
+    palette_option_t palette_option;
+    char *in_filename;
+    char *out_filename;
+} arguments_t;
+
 static uint8_t header[HEADER_SIZE];
 
 static uint8_t palette[PALETTE_SIZE];
@@ -52,15 +66,81 @@ static uint8_t *image;
 
 static void print_usage(void)
 {
-    printf("Usage: nextraw [-own-palette] <srcfile.bmp> [<dstfile>]\n");
-    printf("Convert an uncompressed 8-bit BMP file to a raw image file for "
-           "Sinclair ZX Spectrum Next.\n");
+    printf("Usage: nextraw [-embed-palette|-sep-palette|-no-palette] <srcfile.bmp> [<dstfile>]\n");
+    printf("Convert an uncompressed 8-bit BMP file to a raw image file for Sinclair ZX Spectrum Next.\n");
     printf("If no destination raw image file is specified, the same basename as the source BMP file is\n"
            "used but with the extension \".nxi\".\n");
     printf("\n");
     printf("Options:\n");
-    printf("  -own-palette   If specified, the raw palette is written to a separate file with the same\n"
-           "                 basename as the raw image file but with the extension \".nxp\".\n");
+    printf("  -embed-palette  The raw palette is prepended to the raw image file (default).\n");
+    printf("  -sep-palette    The raw palette is written to a separate file with the same\n"
+           "                  basename as the raw image file but with the extension \".nxp\".\n");
+    printf("  -no-palette     No raw palette is created.\n");
+}
+
+static bool parse_args(int argc, char *argv[], arguments_t *args)
+{
+    if (argc == 1)
+    {
+        print_usage();
+        return false;
+    }
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+        {
+            if (!strcmp(argv[i], "-embed-palette"))
+            {
+                args->palette_option = EMBEDDED;
+            }
+            else if (!strcmp(argv[i], "-sep-palette"))
+            {
+                args->palette_option = SEPARATE;
+            }
+            else if (!strcmp(argv[i], "-no-palette"))
+            {
+                args->palette_option = NONE;
+            }
+            else if (!strcmp(argv[i], "-help"))
+            {
+                print_usage();
+                return false;
+            }
+            else
+            {
+                fprintf(stderr, "Invalid option: %s\n", argv[i]);
+                print_usage();
+                return false;
+            }
+        }
+        else
+        {
+            if (args->in_filename == NULL)
+            {
+                args->in_filename = argv[i];
+            }
+            else if (args->out_filename == NULL)
+            {
+                args->out_filename = argv[i];
+            }
+            else
+            {
+                fprintf(stderr, "Too many arguments.\n");
+                print_usage();
+                return false;
+            }
+        }
+    }
+
+    if (args->in_filename == NULL)
+    {
+        fprintf(stderr, "Input file not specified.\n");
+        print_usage();
+        return false;
+    }
+
+    return true;
 }
 
 static void exit_with_msg(const char *format, ...)
@@ -198,6 +278,7 @@ static void create_raw_palette(void)
 
 int main(int argc, char *argv[])
 {
+    arguments_t args = {EMBEDDED, NULL, NULL};
     char out_filename[256];
     char palette_filename[256];
     uint32_t palette_offset;
@@ -205,52 +286,45 @@ int main(int argc, char *argv[])
     uint32_t image_width;
     int32_t image_height;
 
-    if ((argc < 2) || (argc > 4))
+    // Parse program arguments.
+    if (!parse_args(argc, argv, &args))
     {
-        print_usage();
-        return 0;
+        exit(EXIT_FAILURE);
     }
 
-    // Parse program arguments.
-    bool separate_palette = !strcmp(argv[1], "-own-palette");
-    if (separate_palette && (argc == 2))
-    {
-        print_usage();
-        return 0;
-    }
-    char *in_filename = separate_palette ? argv[2] : argv[1];
-    if ((argc == 4) || ((argc == 3) && !separate_palette))
+    // Create file names for raw image file and, if separate, raw palette file.
+    if (args.out_filename != NULL)
     {
         // Given filename for raw image file.
-        sprintf(out_filename, "%s", (argc == 4) ? argv[3] : argv[2]);
+        sprintf(out_filename, "%s", args.out_filename);
     }
     else
     {
         // Default filename for raw image file.
-        create_filename(out_filename, in_filename, ".nxi");
+        create_filename(out_filename, args.in_filename, ".nxi");
     }
-    if (!strcmp(in_filename, out_filename))
+    if (!strcmp(args.in_filename, out_filename))
     {
         exit_with_msg("BMP file and raw image file cannot have the same name.\n");
     }
-    if (separate_palette)
+    if (args.palette_option == SEPARATE)
     {
         create_filename(palette_filename, out_filename, ".nxp");
     }
 
     // Open the BMP file and validate its header.
-    FILE *in_file = fopen(in_filename, "rb");
+    FILE *in_file = fopen(args.in_filename, "rb");
     if (in_file == NULL)
     {
-        exit_with_msg("Can't open file %s.\n", in_filename);
+        exit_with_msg("Can't open file %s.\n", args.in_filename);
     }
     if (fread(header, sizeof(uint8_t), sizeof(header), in_file) != sizeof(header))
     {
-        exit_with_msg("Can't read the BMP header in file %s.\n", in_filename);
+        exit_with_msg("Can't read the BMP header in file %s.\n", args.in_filename);
     }
     if (!is_valid_bmp_file(&palette_offset, &image_offset, &image_width, &image_height))
     {
-        exit_with_msg("The file %s is not a valid or supported BMP file.\n", in_filename);
+        exit_with_msg("The file %s is not a valid or supported BMP file.\n", args.in_filename);
     }
 
     // Allocate memory for image data.
@@ -267,26 +341,32 @@ int main(int argc, char *argv[])
     atexit(free_image);
 
     // Read the palette and image data.
-    if (fseek(in_file, palette_offset, SEEK_SET) != 0)
+    if (args.palette_option != NONE)
     {
-        exit_with_msg("Can't access the BMP palette in file %s.\n", in_filename);
-    }
-    if (fread(palette, sizeof(uint8_t), sizeof(palette), in_file) != sizeof(palette))
-    {
-        exit_with_msg("Can't read the BMP palette in file %s.\n", in_filename);
+        if (fseek(in_file, palette_offset, SEEK_SET) != 0)
+        {
+            exit_with_msg("Can't access the BMP palette in file %s.\n", args.in_filename);
+        }
+        if (fread(palette, sizeof(uint8_t), sizeof(palette), in_file) != sizeof(palette))
+        {
+            exit_with_msg("Can't read the BMP palette in file %s.\n", args.in_filename);
+        }
     }
     if (fseek(in_file, image_offset, SEEK_SET) != 0)
     {
-        exit_with_msg("Can't access the BMP image data in file %s.\n", in_filename);
+        exit_with_msg("Can't access the BMP image data in file %s.\n", args.in_filename);
     }
     if (fread(image, sizeof(uint8_t), image_size, in_file) != image_size)
     {
-        exit_with_msg("Can't read the BMP image data in file %s.\n", in_filename);
+        exit_with_msg("Can't read the BMP image data in file %s.\n", args.in_filename);
     }
     fclose(in_file);
 
     // Create the raw palette.
-    create_raw_palette();
+    if (args.palette_option != NONE)
+    {
+        create_raw_palette();
+    }
 
     // Open the raw image file.
     FILE *out_file = fopen(out_filename, "wb");
@@ -296,7 +376,7 @@ int main(int argc, char *argv[])
     }
 
     // Write the raw palette either as a separate file or prepended to the raw image file.
-    if (separate_palette)
+    if (args.palette_option == SEPARATE)
     {
         FILE *palette_file = fopen(palette_filename, "wb");
         if (palette_file == NULL)
@@ -309,7 +389,7 @@ int main(int argc, char *argv[])
         }
         fclose(palette_file);
     }
-    else
+    else if (args.palette_option == EMBEDDED)
     {
         if (fwrite(raw_palette, sizeof(uint8_t), sizeof(raw_palette), out_file) != sizeof(raw_palette))
         {
