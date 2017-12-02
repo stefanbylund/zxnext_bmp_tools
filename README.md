@@ -46,27 +46,39 @@ rounded to the nearest integer (-round). However, depending on the original
 RGB888 colors, this may not always be the best choice. Sometimes, better results
 are achieved by rounding upwards (-ceil) or downwards (-floor).
 
+If the -std-palette option is specified, the original RGB888 colors in the
+palette are converted to the Spectrum Next standard palette RGB332 colors
+(which are extended to RGB333 colors when displayed). This is useful if you need
+to use the standard palette. However, better results are generally achieved when
+converting to the closest matching RGB333 colors.
+
 Examples:
 ```
 > nextbmp image.bmp
 > nextbmp -ceil image.bmp image2.bmp
+> nextbmp -floor -std-palette image.bmp image2.bmp
 ```
 
 The first example will convert the palette in the BMP file image.bmp. The second
 example will convert the palette in the BMP file image.bmp and write it to the
 new BMP file image2.bmp and round up the color values to the nearest integer
-when converting the palette.
+when converting the palette. The third example will convert the palette in the
+BMP file image.bmp to the Spectrum Next standard palette and write it to the new
+BMP file image2.bmp and round down the color values to the nearest integer when
+converting the pixel colors.
 
 ### nextraw
 
 Tool for converting an uncompressed 8-bit BMP file to a raw image file for
 Spectrum Next. The RGB888 colors in the BMP palette are converted to RGB333
 colors. If no destination file for the raw image is specified, the same name as
-the source BMP file is used but with the extension ".nxi". If the -own-palette
+the source BMP file is used but with the extension ".nxi". If the -sep-palette
 option is specified, the raw palette is written to a separate file with the
 same name as the raw image file but with the extension ".nxp", otherwise it is
-prepended to the raw image file. Run the nextraw tool without any parameters to
-get a list of all options.
+prepended to the raw image file. If the -no-palette option is specified, no raw
+palette is created, e.g. if the BMP file uses the Spectrum Next standard palette
+there is no need to create the raw palette. Run the nextraw tool without any
+parameters to get a list of all options.
 
 Note: If the BMP file does not already contain an RGB888 palette representing
 the Spectrum Next RGB333 colors, first convert the BMP file to Spectrum Next
@@ -77,20 +89,23 @@ image data. The raw palette consists of 256 RGB333 colors and is 512 bytes long.
 The RGB333 colors are stored as an RGB332 byte followed by a zero-extended byte
 containing the lowest blue bit. The raw image data consists of pixel bytes in
 linear order from left-to-right and top-to-bottom. The pixel bytes are indexes
-into the 256 color palette. If the -own-palette option is specified, the raw
+into the 256 color palette. If the -sep-palette option is specified, the raw
 palette is instead written to a separate file with the same layout as when the
 palette is prepended to the raw image file.
 
 Examples:
 ```
 > nextraw image.bmp
-> nextraw -own-palette image.bmp graphics.nxi
+> nextraw -sep-palette image.bmp graphics.nxi
+> nextraw -no-palette image.bmp graphics.nxi
 ```
 
 The first example will convert the BMP file image.bmp to a raw image file which
 by default will get the name image.nxi and have the raw palette prepended to it.
 The second example will convert the BMP file image.bmp to the raw image file
 graphics.nxi and write the raw palette to a separate file called graphics.nxp.
+The third example will convert the BMP file image.bmp to the raw image file
+graphics.nxi and don't create any raw palette.
 
 ## How to Build
 

@@ -331,8 +331,8 @@ int main(int argc, char *argv[])
     }
 
     // Allocate memory for image data.
-    bool bottom_to_top_image = (image_height > 0);
     // Note: Image width is padded to a multiple of 4 bytes.
+    bool bottom_to_top_image = (image_height > 0);
     uint32_t padded_image_width = (image_width + 3) & ~0x03;
     image_height = bottom_to_top_image ? image_height : -image_height;
     uint32_t image_size = padded_image_width * image_height;
@@ -378,8 +378,15 @@ int main(int argc, char *argv[])
         exit_with_msg("Can't create raw image file %s.\n", out_filename);
     }
 
-    // Write the raw palette either as a separate file or prepended to the raw image file.
-    if (args.palette_option == SEPARATE)
+    // Write the raw palette either prepended to the raw image file or as a separate file.
+    if (args.palette_option == EMBEDDED)
+    {
+        if (fwrite(raw_palette, sizeof(uint8_t), sizeof(raw_palette), out_file) != sizeof(raw_palette))
+        {
+            exit_with_msg("Can't write the raw palette to file %s.\n", out_filename);
+        }
+    }
+    else if (args.palette_option == SEPARATE)
     {
         FILE *palette_file = fopen(palette_filename, "wb");
         if (palette_file == NULL)
@@ -391,13 +398,6 @@ int main(int argc, char *argv[])
             exit_with_msg("Can't write the raw palette file %s.\n", palette_filename);
         }
         fclose(palette_file);
-    }
-    else if (args.palette_option == EMBEDDED)
-    {
-        if (fwrite(raw_palette, sizeof(uint8_t), sizeof(raw_palette), out_file) != sizeof(raw_palette))
-        {
-            exit_with_msg("Can't write the raw palette to file %s.\n", out_filename);
-        }
     }
 
     // Write the raw image data.
