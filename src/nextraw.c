@@ -5,17 +5,20 @@
  * Sinclair ZX Spectrum Next. The RGB888 colors in the BMP palette are converted
  * to RGB333 colors. If no destination raw image file is specified, the same
  * name as the source BMP file is used but with the extension ".nxi". If the
- * -own-palette option is specified, the raw palette is written to a separate
+ * -sep-palette option is specified, the raw palette is written to a separate
  * file with the same name as the raw image file but with the extension ".nxp",
- * otherwise it is prepended to the raw image file. This program is suitable for
- * converting BMP files to raw layer 2 and sprite graphics.
+ * otherwise it is prepended to the raw image file. If the -no-palette option is
+ * specified, no raw palette is created, e.g. if the BMP file uses the Spectrum
+ * Next standard palette there is no need to create the raw palette.
+ * This program is suitable for converting BMP files to raw layer 2 and sprite
+ * graphics.
  *
  * By default, the raw image file contains the raw palette followed by the raw
  * image data. The raw palette consists of 256 RGB333 colors and is 512 bytes
  * long. The RGB333 colors are stored as an RGB332 byte followed by a zero-
  * extended byte containing the lowest blue bit. The raw image data consists of
  * pixel bytes in linear order from left-to-right and top-to-bottom. The pixel
- * bytes are indexes into the 256 color palette. If the -own-palette option is
+ * bytes are indexes into the 256 color palette. If the -sep-palette option is
  * specified, the raw palette is instead written to a separate file with the
  * same layout as when the palette is prepended to the raw image file.
  *
