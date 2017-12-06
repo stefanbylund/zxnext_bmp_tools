@@ -13,7 +13,7 @@ and options.
 ## Download
 
 The latest version of the Next BMP tools can be downloaded
-[here](https://github.com/stefanbylund/zxnext_bmp_tools/blob/master/build/zxnext_bmp_tools.zip).
+**[here](https://github.com/stefanbylund/zxnext_bmp_tools/blob/master/build/zxnext_bmp_tools.zip)**.
 This download contains prebuilt executables for Windows along with the source
 code and this README.md file. If you want to build the Next BMP tools yourself,
 see the "How to Build" section below.
