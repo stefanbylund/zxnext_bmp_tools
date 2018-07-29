@@ -16,6 +16,14 @@
  * choice. Sometimes, better results are achieved by rounding upwards (-ceil)
  * or downwards (-floor).
  *
+ * If the -min-palette option is specified, the converted palette is minimized
+ * by removing any duplicated colors, sorting it in ascending order (i.e. the
+ * same order as in the Spectrum Next standard palette), and clearing any unused
+ * palette entries at the end. This is useful if you convert images that you
+ * have not created the palette for and which may end up having duplicated
+ * palette colors when being converted. This option is ignored if the
+ * -std-palette option is given.
+ *
  * If the -std-palette option is specified, the original RGB888 colors in the
  * palette are converted to the Spectrum Next standard palette RGB332 colors
  * (which are extended to RGB333 colors when displayed). This is useful if you
@@ -41,9 +49,9 @@
 #define FILE_HEADER_SIZE 14
 #define MIN_DIB_HEADER_SIZE 40
 #define HEADER_SIZE 54
-#define PALETTE_SIZE 1024
-#define STD_PALETTE_SIZE 256
 #define MIN_BMP_FILE_SIZE 1082
+#define PALETTE_SIZE 1024
+#define NUM_PALETTE_COLORS 256
 
 typedef enum rounding_mode
 {
@@ -55,6 +63,7 @@ typedef enum rounding_mode
 typedef struct arguments
 {
     rounding_mode_t rounding_mode;
+    bool minimize_palette;
     bool use_std_palette;
     char *in_filename;
     char *out_filename;
@@ -64,13 +73,17 @@ static uint8_t header[HEADER_SIZE];
 
 static uint8_t palette[PALETTE_SIZE];
 
-static uint8_t std_palette_index[STD_PALETTE_SIZE];
+static uint8_t min_palette[PALETTE_SIZE];
+
+static uint8_t min_palette_index[NUM_PALETTE_COLORS];
+
+static uint8_t std_palette_index[NUM_PALETTE_COLORS];
 
 static uint8_t *image;
 
 static void print_usage(void)
 {
-    printf("Usage: nextbmp [-floor|-ceil|-round] [-std-palette] <srcfile.bmp> [<dstfile.bmp>]\n");
+    printf("Usage: nextbmp [-floor|-ceil|-round] [-min-palette] [-std-palette] <srcfile.bmp> [<dstfile.bmp>]\n");
     printf("Convert the palette in an uncompressed 8-bit BMP file to Sinclair ZX Spectrum Next format.\n");
     printf("If no destination BMP file is specified, the source BMP file is modified.\n");
     printf("\n");
@@ -78,6 +91,9 @@ static void print_usage(void)
     printf("  -floor        Round down the color values to the nearest integer.\n");
     printf("  -ceil         Round up the color values to the nearest integer.\n");
     printf("  -round        Round the color values to the nearest integer (default).\n");
+    printf("  -min-palette  If specified, minimize the palette by removing any duplicated colors, sort\n");
+    printf("                it in ascending order, and clear any unused palette entries at the end.\n");
+    printf("                This option is ignored if the -std-palette option is given.\n");
     printf("  -std-palette  If specified, convert to the Spectrum Next standard palette colors.\n");
 }
 
@@ -104,6 +120,10 @@ static bool parse_args(int argc, char *argv[], arguments_t *args)
             else if (!strcmp(argv[i], "-round"))
             {
                 args->rounding_mode = ROUND;
+            }
+            else if (!strcmp(argv[i], "-min-palette"))
+            {
+                args->minimize_palette = true;
             }
             else if (!strcmp(argv[i], "-std-palette"))
             {
@@ -294,7 +314,7 @@ static void convert_palette(rounding_mode_t rounding_mode)
     // Update the colors in the palette.
     // The original RGB888 colors in the palette are converted to
     // RGB333 colors and then back to their equivalent RGB888 colors.
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < NUM_PALETTE_COLORS; i++)
     {
         // BMP palette contains BGRA colors.
         uint8_t r8 = palette[i * 4 + 2];
@@ -322,7 +342,7 @@ static void convert_standard_palette(rounding_mode_t rounding_mode)
     // The original RGB888 colors in the palette are converted to the RGB332/
     // RGB333 colors in the standard palette and then back to their equivalent
     // RGB888 colors.
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < NUM_PALETTE_COLORS; i++)
     {
         // BMP palette contains BGRA colors.
         uint8_t r8 = palette[i * 4 + 2];
@@ -362,6 +382,80 @@ static void convert_standard_palette(rounding_mode_t rounding_mode)
     }
 }
 
+static int compare_color(const void *p1, const void *p2)
+{
+    uint8_t *color1 = (uint8_t *) p1;
+    uint8_t *color2 = (uint8_t *) p2;
+
+    uint8_t r1 = color1[2];
+    uint8_t g1 = color1[1];
+    uint8_t b1 = color1[0];
+
+    uint8_t r2 = color2[2];
+    uint8_t g2 = color2[1];
+    uint8_t b2 = color2[0];
+
+    uint32_t rgb1 = (r1 << 16) | (g1 << 8) | (b1 << 0);
+    uint32_t rgb2 = (r2 << 16) | (g2 << 8) | (b2 << 0);
+
+    return (rgb1 > rgb2) ? 1 : (rgb1 < rgb2) ? -1 : 0;
+}
+
+static int create_minimized_palette(void)
+{
+    uint32_t *min_palette_colors = (uint32_t *) min_palette;
+    int last_unique_color_index = 0;
+
+    memcpy(min_palette, palette, sizeof(palette));
+
+    // Sort the palette colors in ascending RGB order.
+    qsort(min_palette, NUM_PALETTE_COLORS, sizeof(uint32_t), compare_color);
+
+    // Remove any duplicated palette colors.
+    for (int i = 0; i < NUM_PALETTE_COLORS; i++)
+    {
+        if (min_palette_colors[i] != min_palette_colors[last_unique_color_index])
+        {
+            min_palette_colors[++last_unique_color_index] = min_palette_colors[i];
+        }
+    }
+
+    // Set any unused palette entries to 0 (black).
+    for (int i = last_unique_color_index + 1; i < NUM_PALETTE_COLORS; i++)
+    {
+        min_palette_colors[i] = 0;
+    }
+
+    // Return number of unique palette colors.
+    return last_unique_color_index + 1;
+}
+
+static void create_minimized_palette_index_table(void)
+{
+    uint32_t *palette_colors = (uint32_t *) palette;
+    uint32_t *min_palette_colors = (uint32_t *) min_palette;
+
+    /*
+     * Iterate over the originally converted palette and for each color, look up
+     * its new index in the minimized palette and write that index in the index
+     * table at the same position as the color in the originally converted
+     * palette. This index table will be used to update the pixels in the image
+     * to use the minimized palette.
+     */
+
+    for (int i = 0; i < NUM_PALETTE_COLORS; i++)
+    {
+        for (int j = 0; j < NUM_PALETTE_COLORS; j++)
+        {
+            if (palette_colors[i] == min_palette_colors[j])
+            {
+                min_palette_index[i] = j;
+                break;
+            }
+        }
+    }
+}
+
 static bool copy_file(FILE *src_file, FILE *dst_file)
 {
     uint8_t buffer[BUFSIZ];
@@ -380,8 +474,9 @@ static bool copy_file(FILE *src_file, FILE *dst_file)
 
 int main(int argc, char *argv[])
 {
-    arguments_t args = {ROUND, false, NULL, NULL};
+    arguments_t args = {ROUND, false, false, NULL, NULL};
     bool create_new_file;
+    bool update_image_data;
     uint32_t palette_offset;
     uint32_t image_offset;
     uint32_t image_width;
@@ -393,6 +488,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     create_new_file = (args.out_filename != NULL) && strcmp(args.in_filename, args.out_filename);
+    update_image_data = args.minimize_palette || args.use_std_palette;
 
     // Open the BMP file and validate its header.
     FILE *in_file = fopen(args.in_filename, "rb");
@@ -414,9 +510,10 @@ int main(int argc, char *argv[])
     uint32_t padded_image_width = (image_width + 3) & ~0x03;
     image_height = abs(image_height);
     uint32_t image_size = padded_image_width * image_height;
-    if (args.use_std_palette)
+
+    // Allocate memory for image data.
+    if (update_image_data)
     {
-        // Allocate memory for image data.
         image = malloc(image_size);
         if (image == NULL)
         {
@@ -434,7 +531,7 @@ int main(int argc, char *argv[])
     {
         exit_with_msg("Can't read the BMP palette in file %s.\n", args.in_filename);
     }
-    if (args.use_std_palette)
+    if (update_image_data)
     {
         if (fseek(in_file, image_offset, SEEK_SET) != 0)
         {
@@ -463,10 +560,30 @@ int main(int argc, char *argv[])
     {
         // Convert the colors in the palette to the closest matching RGB333 colors.
         convert_palette(args.rounding_mode);
+
+        if (args.minimize_palette)
+        {
+            // Minimize the converted palette by removing any duplicated colors and sort it
+            // in ascending RGB order. Any unused palette entries at the end are set to 0 (black).
+            int num_unique_colors = create_minimized_palette();
+            printf("The minimized palette contains %d unique colors.\n", num_unique_colors);
+
+            // Create an index table containing the palette indexes of the minimized palette
+            // that correspond to the palette indexes of the originally converted palette.
+            create_minimized_palette_index_table();
+
+            // Copy back the minimized palette to the original palette.
+            memcpy(palette, min_palette, sizeof(min_palette));
+
+            // Update the image pixels to use the palette indexes of the minimized palette.
+            for (int i = 0; i < image_size; i++)
+            {
+                image[i] = min_palette_index[image[i]];
+            }
+        }
     }
 
-    // Write the updated palette and, if the standard palette is used, the updated image data.
-    // Update the original BMP file or a copy of it.
+    // Write the updated palette and image data. Update the original BMP file or a copy of it.
     FILE *out_file = fopen(args.out_filename, create_new_file ? "wb" : "r+b");
     if (out_file == NULL)
     {
@@ -493,7 +610,7 @@ int main(int argc, char *argv[])
     {
         exit_with_msg("Can't write the BMP palette in file %s.\n", args.out_filename);
     }
-    if (args.use_std_palette)
+    if (update_image_data)
     {
         if (fseek(out_file, image_offset, SEEK_SET) != 0)
         {

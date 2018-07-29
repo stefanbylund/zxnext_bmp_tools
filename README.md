@@ -13,7 +13,7 @@ and options.
 ## Download
 
 The latest version of the Next BMP tools can be downloaded
-**[here](https://github.com/stefanbylund/zxnext_bmp_tools/blob/master/build/zxnext_bmp_tools.zip)**.
+**[HERE](https://github.com/stefanbylund/zxnext_bmp_tools/blob/master/build/zxnext_bmp_tools.zip)**.
 This download contains prebuilt executables for Windows along with the source
 code and this README.md file. If you want to build the Next BMP tools yourself,
 see the "How to Build" section below.
@@ -46,6 +46,14 @@ rounded to the nearest integer (-round). However, depending on the original
 RGB888 colors, this may not always be the best choice. Sometimes, better results
 are achieved by rounding upwards (-ceil) or downwards (-floor).
 
+If the -min-palette option is specified, the converted palette is minimized
+by removing any duplicated colors, sorting it in ascending order (i.e. the
+same order as in the Spectrum Next standard palette), and clearing any unused
+palette entries at the end. This is useful if you convert images that you
+have not created the palette for and which may end up having duplicated
+palette colors when being converted. This option is ignored if the
+-std-palette option is given.
+
 If the -std-palette option is specified, the original RGB888 colors in the
 palette are converted to the Spectrum Next standard palette RGB332 colors
 (which are extended to RGB333 colors when displayed). This is useful if you need
@@ -55,15 +63,16 @@ converting to the closest matching RGB333 colors.
 Examples:
 ```
 > nextbmp image.bmp
-> nextbmp -ceil image.bmp image2.bmp
+> nextbmp -ceil -min-palette image.bmp image2.bmp
 > nextbmp -floor -std-palette image.bmp image2.bmp
 ```
 
 The first example will convert the palette in the BMP file image.bmp. The second
 example will convert the palette in the BMP file image.bmp and write it to the
 new BMP file image2.bmp and round up the color values to the nearest integer
-when converting the palette. The third example will convert the palette in the
-BMP file image.bmp to the Spectrum Next standard palette and write it to the new
+when converting the palette. The converted palette will be minimized by removing
+any duplicated colors. The third example will convert the palette in the BMP
+file image.bmp to the Spectrum Next standard palette and write it to the new
 BMP file image2.bmp and round down the color values to the nearest integer when
 converting the pixel colors.
 
