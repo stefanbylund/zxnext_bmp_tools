@@ -36,8 +36,11 @@ Run the nextbmp tool without any parameters to get a list of all options.
 
 Tip: If you have an image in another format than BMP (e.g. PNG) or another color
 depth than 8 bits/pixel (e.g. 24-bit BMP), first convert the image to an 8-bit
-BMP image in a paint program (e.g. Photoshop, Paint.NET or GIMP) before
-converting it to Spectrum Next palette format using the nextbmp tool.
+BMP image in a paint program (e.g. Adobe Photoshop, Paint.NET, GIMP or PaintShop
+Pro) before converting it to Spectrum Next palette format using the nextbmp tool.
+
+Tip: The [palettes](palettes) directory contains Spectrum Next palette files
+in several common palette formats for use with many paint programs.
 
 Note that when the original RGB888 colors in the palette are converted to RGB333
 colors, the resulting 3-bit color components may not end up as integers and must
