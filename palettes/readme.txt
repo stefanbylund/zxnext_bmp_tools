@@ -16,6 +16,8 @@ Palette files for the following palette formats are provided:
 
 If you are using another paint program than one from the list above, it is
 possible that it will still support one or more of the palette formats above.
+If not, you can use the provided PNG image palettes; every decent paint program
+supports loading PNG images and picking colours from an image.
 
 Note 1: The .act palette format only supports 256 colours.
 
