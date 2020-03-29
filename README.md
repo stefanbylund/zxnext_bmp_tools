@@ -40,7 +40,13 @@ BMP image in a paint program (e.g. Adobe Photoshop, Paint.NET, GIMP or PaintShop
 Pro) before converting it to Spectrum Next palette format using the nextbmp tool.
 
 Tip: The [palettes](palettes) directory contains Spectrum Next palette files
-in several common palette formats for use with many paint programs.
+in several common palette formats for use with many paint programs. It also
+contains a palette designed for graphics artists.
+
+Tip: [Color Quantizer](http://x128.ho.ua/color-quantizer.html) is an excellent
+image processing tool for downscaling the number of colors in an image. Use it
+together with the 512 color Spectrum Next palette file
+[zxnext-palette-512.pal](palettes/zxnext-palette-512.pal) for best results.
 
 Note that when the original RGB888 colors in the palette are converted to RGB333
 colors, the resulting 3-bit color components may not end up as integers and must
