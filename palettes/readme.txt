@@ -30,14 +30,23 @@ So the palette files must be split up to your discretion.
 Artistic Palette
 ================
 
-The file zxnext-artistic-palette.png is an image of a palette designed for
-graphics artists where the colors are grouped and ordered in a logical way that
-is useful when drawing pixel art. Open this palette image in your favorite paint
-program and use it as a color picker.
+The files zxnext-artistic-palette-256.png and zxnext-artistic-palette-512.png
+are images of a palette designed for graphics artists where the colors are
+grouped and ordered in a logical way that is useful when drawing pixel art.
+Open one of the palette images in your favorite paint program and use it as a
+color picker.
 
-The palette contains several visualizations of the 512 color Spectrum Next
-palette, where each one is explained below. The palette also contains a basic
-section with commonly used colors.
+The palette contains several visualizations of the 256 (8-bit) color and 512
+(9-bit) color Spectrum Next palette, where each visualization type is explained
+below. The palette also contains a basic section with commonly used colors.
+
+Note: The numbers and details in the descriptions of the visualization types
+below are for the 512 color Spectrum Next palette.
+
+Note: The RGB332 256 color version of the palette looks a bit asymmetrical.
+This is because the RGB332 color space is non-uniform where the blue color
+component is only half the size of the red and green color components. This
+irregularity becomes very evident when visualizing the palette.
 
 This palette is partly inspired by a palette for the PC Engine by sunteam_paul.
 

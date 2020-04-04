@@ -39,9 +39,11 @@ depth than 8 bits/pixel (e.g. 24-bit BMP), first convert the image to an 8-bit
 BMP image in a paint program (e.g. Adobe Photoshop, Paint.NET, GIMP or PaintShop
 Pro) before converting it to Spectrum Next palette format using the nextbmp tool.
 
-Tip: The [palettes](palettes) directory contains Spectrum Next palette files
-in several common palette formats for use with many paint programs. It also
-contains a palette designed for graphics artists.
+Tip: The [palettes](palettes) directory contains Spectrum Next palette files in
+several common palette formats for use with many paint programs. This directory
+also contains a palette in [256](palettes/zxnext-artistic-palette-256.png) and
+[512](palettes/zxnext-artistic-palette-512.png) colors designed for graphics
+artists.
 
 Tip: [Color Quantizer](http://x128.ho.ua/color-quantizer.html) is an excellent
 image processing tool for downscaling the number of colors in an image. Use it
@@ -84,6 +86,21 @@ any duplicated colors. The third example will convert the palette in the BMP
 file image.bmp to the Spectrum Next standard palette and write it to the new
 BMP file image2.bmp and round down the color values to the nearest integer when
 converting the pixel colors.
+
+The table below shows how the values for the RGB332 2-bit blue color component
+and RGB333/RGB332 3-bit red/green/blue color components are mapped to RGB888
+8-bit red/green/blue color components:
+
+| 2-bit | 3-bit | 8-bit |
+|------:|------:|------:|
+|   0   |   0   |    0  |
+|       |   1   |   36  |
+|       |   2   |   73  |
+|   1   |   3   |  109  |
+|       |   4   |  146  |
+|   2   |   5   |  182  |
+|       |   6   |  219  |
+|   3   |   7   |  255  |
 
 ### nextraw
 
