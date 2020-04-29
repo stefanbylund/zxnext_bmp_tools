@@ -10,17 +10,35 @@
  * otherwise it is prepended to the raw image file. If the -no-palette option is
  * specified, no raw palette is created, e.g. if the BMP file uses the Spectrum
  * Next standard palette there is no need to create the raw palette.
- * This program is suitable for converting BMP files to raw layer 2 and sprite
- * graphics.
+ * This program is suitable for converting BMP files to raw layer 2 graphics
+ * (256 x 192, 320 x 256 and 640 x 256) and sprite graphics (4-bit and 8-bit).
+ *
+ * If the -4bit option is specified, each pixel is 4 bits so that each byte in
+ * the raw image data will contain two horizontally adjacent pixels (where the
+ * 4 highest bits contain the leftmost pixel and the 4 lowest bits contain the
+ * rightmost pixel) and the palette will contain 16 colors. By default, each
+ * pixel is 8 bits so that each byte in the raw image data will contain one
+ * pixel and the palette will contain 256 colors. Use this option for images
+ * intended to be displayed in the 640 x 256 layer 2 mode or for 4-bit sprite
+ * sheets.
+ *
+ * If the -columns option is specified, the raw image data will consist of
+ * pixels in linear order from top-to-bottom and left-to-right, i.e. columns of
+ * pixels from left to right. By default, the raw image data will consist of
+ * pixels in linear order from left-to-right and top-to-bottom, i.e. rows of
+ * pixels from top to bottom. Use this option for images intended to be
+ * displayed in the 320 x 256 or 640 x 256 layer 2 mode.
  *
  * By default, the raw image file contains the raw palette followed by the raw
- * image data. The raw palette consists of 256 RGB333 colors and is 512 bytes
- * long. The RGB333 colors are stored as an RGB332 byte followed by a zero-
- * extended byte containing the lowest blue bit. The raw image data consists of
- * pixel bytes in linear order from left-to-right and top-to-bottom. The pixel
- * bytes are indexes into the 256 color palette. If the -sep-palette option is
- * specified, the raw palette is instead written to a separate file with the
- * same layout as when the palette is prepended to the raw image file.
+ * image data. If the -sep-palette option is specified, the raw palette is
+ * instead written to a separate file. By default, the raw palette consists of
+ * 256 RGB333 colors and is 512 bytes long. If the -4bit option is specified,
+ * the raw palette consists of 16 RGB333 colors and is 32 bytes long. The RGB333
+ * colors are stored as an RGB332 byte followed by a zero-extended byte
+ * containing the lowest blue bit. By default, the raw image data consists of
+ * linear rows of pixels from top to bottom. If the -columns option is specified,
+ * the raw image data consists of linear columns of pixels from left to right.
+ * The 4/8-bit pixels are indexes into the 16/256 color palette.
  *
  * Note: If the BMP file does not already contain an RGB888 palette representing
  * the Spectrum Next RGB333 colors, first convert the BMP file to Spectrum Next
@@ -43,6 +61,7 @@
 #define HEADER_SIZE 54
 #define PALETTE_SIZE 1024
 #define RAW_PALETTE_SIZE 512
+#define RAW_4BIT_PALETTE_SIZE 32
 #define MIN_BMP_FILE_SIZE 1082
 
 typedef enum palette_option
@@ -55,6 +74,8 @@ typedef enum palette_option
 typedef struct arguments
 {
     palette_option_t palette_option;
+    bool use_4bit;
+    bool column_layout;
     char *in_filename;
     char *out_filename;
 } arguments_t;
@@ -67,9 +88,26 @@ static uint8_t raw_palette[RAW_PALETTE_SIZE];
 
 static uint8_t *image;
 
+static uint8_t *raw_image;
+
+static void exit_handler(void)
+{
+    if (image != NULL)
+    {
+        free(image);
+        image = NULL;
+    }
+
+    if (raw_image != NULL)
+    {
+        free(raw_image);
+        raw_image = NULL;
+    }
+}
+
 static void print_usage(void)
 {
-    printf("Usage: nextraw [-embed-palette|-sep-palette|-no-palette] <srcfile.bmp> [<dstfile>]\n");
+    printf("Usage: nextraw [-embed-palette|-sep-palette|-no-palette] [-4bit] [-columns] <srcfile.bmp> [<dstfile>]\n");
     printf("Convert an uncompressed 8-bit BMP file to a raw image file for Sinclair ZX Spectrum Next.\n");
     printf("If no destination raw image file is specified, the same basename as the source BMP file is\n"
            "used but with the extension \".nxi\".\n");
@@ -79,6 +117,8 @@ static void print_usage(void)
     printf("  -sep-palette    The raw palette is written to a separate file with the same\n"
            "                  basename as the raw image file but with the extension \".nxp\".\n");
     printf("  -no-palette     No raw palette is created.\n");
+    printf("  -4bit           If specified, use 4 bits per pixel (16 colors). Default is 8 bits per pixel (256 colors).\n");
+    printf("  -columns        If specified, use column based memory layout. Default is row based memory layout.\n");
 }
 
 static bool parse_args(int argc, char *argv[], arguments_t *args)
@@ -104,6 +144,14 @@ static bool parse_args(int argc, char *argv[], arguments_t *args)
             else if (!strcmp(argv[i], "-no-palette"))
             {
                 args->palette_option = NONE;
+            }
+            else if (!strcmp(argv[i], "-4bit"))
+            {
+                args->use_4bit = true;
+            }
+            else if (!strcmp(argv[i], "-columns"))
+            {
+                args->column_layout = true;
             }
             else if (!strcmp(argv[i], "-help"))
             {
@@ -240,26 +288,17 @@ static bool is_valid_bmp_file(uint32_t *palette_offset,
     return true;
 }
 
-static void free_image(void)
-{
-    if (image != NULL)
-    {
-        free(image);
-        image = NULL;
-    }
-}
-
 static uint8_t c8_to_c3(uint8_t c8)
 {
     return (uint8_t) round((c8 * 7.0) / 255.0);
 }
 
-static void create_raw_palette(void)
+static void create_raw_palette(uint32_t num_palette_colors)
 {
     // Create the raw palette.
     // The RGB888 colors in the BMP palette are converted to RGB333 colors,
     // which are then split in RGB332 and B1 parts.
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < num_palette_colors; i++)
     {
         // BMP palette contains BGRA colors.
         uint8_t r8 = palette[i * 4 + 2];
@@ -281,13 +320,15 @@ static void create_raw_palette(void)
 
 int main(int argc, char *argv[])
 {
-    arguments_t args = {EMBEDDED, NULL, NULL};
+    arguments_t args = {EMBEDDED, false, false, NULL, NULL};
     char out_filename[256];
     char palette_filename[256];
     uint32_t palette_offset;
     uint32_t image_offset;
     uint32_t image_width;
     int32_t image_height;
+
+    atexit(exit_handler);
 
     // Parse program arguments.
     if (!parse_args(argc, argv, &args))
@@ -341,7 +382,6 @@ int main(int argc, char *argv[])
     {
         exit_with_msg("Can't allocate memory for image data.\n");
     }
-    atexit(free_image);
 
     // Read the palette and image data.
     if (args.palette_option != NONE)
@@ -368,7 +408,8 @@ int main(int argc, char *argv[])
     // Create the raw palette.
     if (args.palette_option != NONE)
     {
-        create_raw_palette();
+        uint32_t num_palette_colors = args.use_4bit ? 16 : 256;
+        create_raw_palette(num_palette_colors);
     }
 
     // Open the raw image file.
@@ -379,9 +420,10 @@ int main(int argc, char *argv[])
     }
 
     // Write the raw palette either prepended to the raw image file or as a separate file.
+    uint32_t raw_palette_size = args.use_4bit ? RAW_4BIT_PALETTE_SIZE : RAW_PALETTE_SIZE;
     if (args.palette_option == EMBEDDED)
     {
-        if (fwrite(raw_palette, sizeof(uint8_t), sizeof(raw_palette), out_file) != sizeof(raw_palette))
+        if (fwrite(raw_palette, sizeof(uint8_t), raw_palette_size, out_file) != raw_palette_size)
         {
             exit_with_msg("Can't write the raw palette to file %s.\n", out_filename);
         }
@@ -393,26 +435,91 @@ int main(int argc, char *argv[])
         {
             exit_with_msg("Can't create raw palette file %s.\n", palette_filename);
         }
-        if (fwrite(raw_palette, sizeof(uint8_t), sizeof(raw_palette), palette_file) != sizeof(raw_palette))
+        if (fwrite(raw_palette, sizeof(uint8_t), raw_palette_size, palette_file) != raw_palette_size)
         {
             exit_with_msg("Can't write the raw palette file %s.\n", palette_filename);
         }
         fclose(palette_file);
     }
 
-    // Write the raw image data.
     uint8_t *image_ptr = image;
     if (bottom_to_top_image)
     {
         image_ptr += image_size - padded_image_width;
     }
-    for (int y = 0; y < image_height; y++)
+
+    // Allocate memory for raw image data.
+    uint32_t raw_image_width = args.use_4bit ? ((image_width + image_width % 2) / 2) : image_width;
+    uint32_t raw_image_size = raw_image_width * image_height;
+    raw_image = malloc(raw_image_size);
+    if (raw_image == NULL)
     {
-        if (fwrite(image_ptr, sizeof(uint8_t), image_width, out_file) != image_width)
+        exit_with_msg("Can't allocate memory for raw image data.\n");
+    }
+
+    // Convert the image data to raw image data.
+    if (args.column_layout)
+    {
+        if (args.use_4bit)
         {
-            exit_with_msg("Error writing raw image file %s.\n", out_filename);
+            // 640 x 256 layer 2 mode
+            for (int y = 0; y < image_height; y++)
+            {
+                for (int x = 0; x < image_width; x += 2)
+                {
+                    uint8_t left_pixel = (image_ptr[x] & 0x0F) << 4;
+                    uint8_t right_pixel = image_ptr[x + 1] & 0x0F;
+                    raw_image[y + (x / 2) * image_height] = left_pixel | right_pixel;
+                }
+                image_ptr = bottom_to_top_image ? image_ptr - padded_image_width : image_ptr + padded_image_width;
+            }
         }
-        image_ptr = bottom_to_top_image ? image_ptr - padded_image_width : image_ptr + padded_image_width;
+        else
+        {
+            // 320 x 256 layer 2 mode
+            for (int y = 0; y < image_height; y++)
+            {
+                for (int x = 0; x < image_width; x++)
+                {
+                    raw_image[y + x * image_height] = image_ptr[x];
+                }
+                image_ptr = bottom_to_top_image ? image_ptr - padded_image_width : image_ptr + padded_image_width;
+            }
+        }
+    }
+    else
+    {
+        if (args.use_4bit)
+        {
+            // 4-bit sprite sheets
+            for (int y = 0; y < image_height; y++)
+            {
+                for (int x = 0; x < image_width; x += 2)
+                {
+                    uint8_t left_pixel = (image_ptr[x] & 0x0F) << 4;
+                    uint8_t right_pixel = image_ptr[x + 1] & 0x0F;
+                    raw_image[y * raw_image_width + x / 2] = left_pixel | right_pixel;
+                }
+                image_ptr = bottom_to_top_image ? image_ptr - padded_image_width : image_ptr + padded_image_width;
+            }
+        }
+        else
+        {
+            // 256 x 192 layer 2 mode and 8-bit sprite sheets
+            uint8_t *raw_image_ptr = raw_image;
+            for (int y = 0; y < image_height; y++)
+            {
+                memcpy(raw_image_ptr, image_ptr, image_width);
+                image_ptr = bottom_to_top_image ? image_ptr - padded_image_width : image_ptr + padded_image_width;
+                raw_image_ptr += image_width;
+            }
+        }
+    }
+
+    // Write the raw image data to file.
+    if (fwrite(raw_image, sizeof(uint8_t), raw_image_size, out_file) != raw_image_size)
+    {
+        exit_with_msg("Error writing raw image file %s.\n", out_filename);
     }
     fclose(out_file);
 
