@@ -1,9 +1,9 @@
 /*******************************************************************************
  * Stefan Bylund 2017
  *
- * Program for converting an uncompressed 8-bit BMP file to a raw image file for
- * Sinclair ZX Spectrum Next. The RGB888 colors in the BMP palette are converted
- * to RGB333 colors. If no destination raw image file is specified, the same
+ * Program for converting an uncompressed 8-bit BMP file to a raw image file
+ * for ZX Spectrum Next. The RGB888 colors in the BMP palette are converted to
+ * RGB333 colors. If no destination raw image file is specified, the same
  * name as the source BMP file is used but with the extension ".nxi". If the
  * -sep-palette option is specified, the raw palette is written to a separate
  * file with the same name as the raw image file but with the extension ".nxp",
@@ -108,7 +108,7 @@ static void exit_handler(void)
 static void print_usage(void)
 {
     printf("Usage: nextraw [-embed-palette|-sep-palette|-no-palette] [-4bit] [-columns] <srcfile.bmp> [<dstfile>]\n");
-    printf("Convert an uncompressed 8-bit BMP file to a raw image file for Sinclair ZX Spectrum Next.\n");
+    printf("Convert an uncompressed 8-bit BMP file to a raw image file for ZX Spectrum Next.\n");
     printf("If no destination raw image file is specified, the same basename as the source BMP file is\n"
            "used but with the extension \".nxi\".\n");
     printf("\n");

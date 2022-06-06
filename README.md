@@ -1,9 +1,9 @@
 # Next BMP Tools
 
-The **Next BMP tools** are BMP image conversion tools targetting Sinclair ZX
-Spectrum Next. These tools are used for converting the palette of 8-bit BMP
-files to Spectrum Next format and converting such 8-bit BMP files to raw image
-files suitable for layer 2 and sprite graphics on Spectrum Next. The tools are
+The **Next BMP tools** are BMP image conversion tools targetting ZX Spectrum
+Next. These tools are used for converting the palette of 8-bit BMP files to
+Spectrum Next format and converting such 8-bit BMP files to raw image files
+suitable for layer 2 and sprite graphics on Spectrum Next. The tools are
 described in more detail below.
 
 The Next BMP tools are inspired by Jim Bagley's BMPtoNext and NextGrab tools but
