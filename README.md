@@ -210,8 +210,8 @@ should also work on macOS but that has not yet been tested.
 Use the following command-lines to build using GCC (add -std=c99 if you're using
 an older version of GCC):
 ```
-> gcc -O2 -Wall -lm -o nextbmp nextbmp.c
-> gcc -O2 -Wall -lm -o nextraw nextraw.c
+> gcc -O2 -Wall -o nextbmp nextbmp.c -lm
+> gcc -O2 -Wall -o nextraw nextraw.c -lm
 ```
 
 Use the following command-lines to build using Microsoft Visual Studio:
